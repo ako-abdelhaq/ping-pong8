@@ -110,7 +110,8 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - name: Update both application images
+
+      - name: Update image references in manifests
         shell: bash
         env:
           SERVER_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-server:${{ github.sha }}
@@ -118,76 +119,30 @@ jobs:
         run: |
           set -euo pipefail
 
-          test -d manifest
+          while IFS= read -r -d '' file; do
+            echo "Updating $file"
 
-          mapfile -t files < <(
-            find manifest -type f \
-              \( -name '*.yaml' -o -name '*.yml' \)
-          )
-
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No manifest YAML files found."
-            exit 1
-          fi
-
-          server_count=0
-          pingpong_count=0
-
-          for file in "${files[@]}"; do
-            # Update named containers in Rollouts and Deployments.
-            # Other resource kinds are preserved.
             yq -i '
-              if (.kind == "Rollout" or .kind == "Deployment") then
-                (.spec.template.spec.containers[] |
-                  select(.name == "server").image) =
-                    strenv(SERVER_IMAGE) |
-                (.spec.template.spec.containers[] |
-                  select(.name == "ping-pong").image) =
-                    strenv(PINGPONG_IMAGE)
-              else
-                .
-              end
+              (
+                select(.kind == "Rollout" or .kind == "Deployment")
+                | .spec.template.spec.containers[]
+                | select(.name == "server")
+                | .image
+              ) = strenv(SERVER_IMAGE) |
+              (
+                select(.kind == "Rollout" or .kind == "Deployment")
+                | .spec.template.spec.containers[]
+                | select(.name == "ping-pong")
+                | .image
+              ) = strenv(PINGPONG_IMAGE)
             ' "$file"
 
-            s=$(yq -r '
-              select(.kind == "Rollout" or .kind == "Deployment") |
-              [.spec.template.spec.containers[]? |
-                select(.name == "server")] | length
-            ' "$file" | awk '{s+=$1} END {print s+0}')
-
-            p=$(yq -r '
-              select(.kind == "Rollout" or .kind == "Deployment") |
-              [.spec.template.spec.containers[]? |
-                select(.name == "ping-pong")] | length
-            ' "$file" | awk '{s+=$1} END {print s+0}')
-
-            server_count=$((server_count+s))
-            pingpong_count=$((pingpong_count+p))
-          done
-
-          if [ "$server_count" -eq 0 ]; then
-            echo "ERROR: No container named server found."
-            exit 1
-          fi
-
-          if [ "$pingpong_count" -eq 0 ]; then
-            echo "ERROR: No container named ping-pong found."
-            exit 1
-          fi
-
-          echo "Server references updated: $server_count"
-          echo "Ping-pong references updated: $pingpong_count"
-
-          # Print the rendered resource image references for review.
-          for file in "${files[@]}"; do
-            yq -r '
-              select(.kind == "Rollout" or .kind == "Deployment") |
-              .metadata.name as $name |
-              .spec.template.spec.containers[]? |
-              [$name, .name, .image] | @tsv
-            ' "$file"
-          done
-
+          done < <(
+            find manifest -type f \
+              \( -name '*.yaml' -o -name '*.yml' \) \
+              -print0
+          )
+      
       - name: Commit and push
         shell: bash
         run: |
