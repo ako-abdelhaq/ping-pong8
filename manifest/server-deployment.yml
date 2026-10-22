@@ -19,7 +19,7 @@ spec:
         - name: ako-log-server
           # Make sure this matches the tag you built and pushed
 
-          image: ako99/log-server:v4
+          image: docker.io/ako99/log-server:c3de97021146905bf9db0a32923f5de5b35bd520
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
