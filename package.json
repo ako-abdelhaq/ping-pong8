@@ -1,0 +1,13 @@
+{
+  "name": "ping-pong",
+  "version": "1.0.0",
+  "description": "Backend API server for ping pong",
+  "main": "ping-pong.js",
+  "scripts": {
+    "start": "node ping-pong.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "pg": "^8.13.0"
+  }
+}

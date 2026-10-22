@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: exercises
+  name: ako-log-server-dep
+  labels:
+    app: ako-log-server
+spec:
+  replicas: 2 # Number of pods you want running
+  selector:
+    matchLabels:
+      app: ako-log-server
+  template:
+    metadata:
+      labels:
+        app: ako-log-server
+    spec:
+      containers:
+      - name: ako-log-server
+        # Make sure this matches the tag you built and pushed
+        image: ako99/log-server:v4
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MESSAGE
+          valueFrom:
+            configMapKeyRef:
+              name: log-server-config
+              key: message
+        volumeMounts:
+        - name: config
+          mountPath: "/log-api/config"
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "250m"
+        readinessProbe:
+            httpGet:
+                path: /healthz
+                port: 8080
+            initialDelaySeconds: 10 # Wait 10s after container start before first check
+            periodSeconds: 5        # Check every 5 seconds
+            timeoutSeconds: 3       # Fail the check if ping-pong service doesn't respond within 3s
+            failureThreshold: 3     # Remove pod from Service endpoints after 3 failures
+            successThreshold: 1     # Mark Ready as soon as 1 check returns HTTP 200
+      volumes:
+      - name: config
+        configMap:
+          name: log-server-config
+          items:
+          - key: "information.txt"
+            path: "information.txt"

@@ -1,0 +1,17 @@
+{
+  "name": "log-pong-reader-api",
+  "version": "1.0.0",
+  "description": "Node.js Express server to read and return logs and pongs in JSON format",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

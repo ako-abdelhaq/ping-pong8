@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: ping-pong-dep
+  namespace: exercises
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ako-ping-pong
+  strategy:
+    canary:
+      steps:
+        - setWeight: 50
+        # Run the 5-minute CPU analysis before promoting the update to 100%
+        - analysis:
+            templates:
+              - templateName: cpu-usage-limit
+  template:
+    metadata:
+      labels:
+        app: ako-ping-pong
+    spec:
+      containers:
+        - name: ako-ping-pong
+          image: ako99/ping-pong:v7 # v6 uses postgres database and health checks 
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 8085
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          env:
+            - name: DB_HOST
+              value: "postgres-svc"
+            - name: DB_PORT
+              value: "5432"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8085
+            initialDelaySeconds: 10 # Wait 10s after container start before first check
+            periodSeconds: 5        # Check every 5 seconds
+            timeoutSeconds: 2       # Fail the check if DB doesn't respond within 2s
+            failureThreshold: 3     # Remove pod from Service endpoints after 3 failures
+            successThreshold: 1     # Mark Ready as soon as 1 check returns HTTP 200

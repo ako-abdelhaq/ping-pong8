@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: exercises
+  name: ako-log-server-svc
+  labels:
+    app: ako-log-server
+spec:
+  type: ClusterIP
+  selector:
+    app: ako-log-server # This is the app as declared in the deployment.
+  ports:
+    - port: 1235
+      protocol: TCP
+      targetPort: 8080

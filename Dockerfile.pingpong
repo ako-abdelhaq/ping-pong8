@@ -1,0 +1,11 @@
+FROM node:20-alpine
+
+WORKDIR /ping-pong-app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY ["ping-pong.js", "/ping-pong-app/"]
+
+CMD ["node", "ping-pong.js"]

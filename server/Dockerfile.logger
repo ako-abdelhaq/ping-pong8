@@ -1,0 +1,11 @@
+FROM node:20-alpine
+
+WORKDIR /log-api
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY ["server.js", "/log-api/"]
+
+CMD ["node", "server.js"]
