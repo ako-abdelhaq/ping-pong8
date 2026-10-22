@@ -37,7 +37,7 @@ setInterval(printLog, 5000);
 
 // Respond to GET requests on the root URL
 app.get('/health', (req, res) => {
-  res.send("Hello! Ako's logger API v4 is running.");
+  res.send("Hello! Ako's logger API v5 is running.");
 });
 
 // Health check
