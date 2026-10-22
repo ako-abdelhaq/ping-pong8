@@ -86,6 +86,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=pingpong
 
   update-manifest:
+
     name: Update deployment manifests
     needs:
       - build-server
@@ -110,7 +111,6 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-
       - name: Update image references in manifests
         shell: bash
         env:
@@ -119,29 +119,70 @@ jobs:
         run: |
           set -euo pipefail
 
-          while IFS= read -r -d '' file; do
-            echo "Updating $file"
+          mapfile -d '' -t files < <(
+            find manifest -type f \
+              \( -name '*.yaml' -o -name '*.yml' \) \
+              -print0
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No YAML files found under manifest/"
+            exit 1
+          fi
+
+          for file in "${files[@]}"; do
+            echo "Inspecting $file"
+
+            yq -r '
+              select(.kind == "Rollout" or .kind == "Deployment")
+              | .metadata.name as $workload
+              | .spec.template.spec.containers[]
+              | "\($workload): container=\(.name) image=\(.image)"
+            ' "$file"
 
             yq -i '
               (
                 select(.kind == "Rollout" or .kind == "Deployment")
                 | .spec.template.spec.containers[]
-                | select(.name == "server")
+                | select(
+                    .name == "server" or
+                    .name == "logger" or
+                    ((.image // "") |
+                      test("(^|/)(ping-pong8-server|server|logger)(:|@|$)"))
+                  )
                 | .image
-              ) = strenv(SERVER_IMAGE) |
+              ) = strenv(SERVER_IMAGE)
+              |
               (
                 select(.kind == "Rollout" or .kind == "Deployment")
                 | .spec.template.spec.containers[]
-                | select(.name == "ping-pong")
+                | select(
+                    .name == "ping-pong" or
+                    .name == "pingpong" or
+                    .name == "ping-pong-app" or
+                    ((.image // "") |
+                      test("(^|/)(ping-pong8-pingpong|ping-pong|pingpong)(:|@|$)"))
+                  )
                 | .image
               ) = strenv(PINGPONG_IMAGE)
             ' "$file"
+          done
 
-          done < <(
-            find manifest -type f \
-              \( -name '*.yaml' -o -name '*.yml' \) \
-              -print0
-          )
+          echo "Verifying updated image references..."
+
+          if ! grep -R -F -- "$SERVER_IMAGE" manifest >/dev/null; then
+            echo "::error::Server image was not found in manifest/. Check the container names printed above."
+            exit 1
+          fi
+
+          if ! grep -R -F -- "$PINGPONG_IMAGE" manifest >/dev/null; then
+            echo "::error::Ping-pong image was not found in manifest/. Check the container names printed above."
+            exit 1
+          fi
+
+          echo "Verified both image references:"
+          echo "$SERVER_IMAGE"
+          echo "$PINGPONG_IMAGE"
       
       - name: Commit and push
         shell: bash
