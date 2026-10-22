@@ -15,7 +15,7 @@ spec:
         - analysis:
             templates:
               - templateName: cpu-usage-limit
-          # Run the 5-minute CPU analysis before promoting the update to 100%
+                # Run the 5-minute CPU analysis before promoting the update to 100%
   template:
     metadata:
       labels:
