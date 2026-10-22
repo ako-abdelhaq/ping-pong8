@@ -47,8 +47,8 @@ jobs:
       - name: Build and push server
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: server/Dockerfile.logger
+          context: ./server
+          file: Dockerfile.logger
           push: true
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-server:${{ github.sha }}
