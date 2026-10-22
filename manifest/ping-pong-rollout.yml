@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: ako-ping-pong
-          image: ako99/ping-pong:v8 # v6 uses postgres database and health checks 
+          image: ako99/ping-pong:v7 # v6 uses postgres database and health checks 
           imagePullPolicy: Always
           ports:
           - containerPort: 8085
