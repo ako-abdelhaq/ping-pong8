@@ -48,7 +48,7 @@ async function initDb( retryDelayMs = 2000 ) {
     
   }
   
-  console.log('Database initialized and "pongs" counter ready.');
+  console.log('Database initialized and "pongs" counter is ready.');
 }
 
 // Respond to GET requests on the root URL
