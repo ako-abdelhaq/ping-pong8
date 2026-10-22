@@ -51,7 +51,7 @@ jobs:
           file: ./server/Dockerfile.logger
           push: true
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-server:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/log-server:${{ github.sha }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
 
@@ -81,7 +81,7 @@ jobs:
           file: Dockerfile.pingpong
           push: true
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-pingpong:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong:${{ github.sha }}
           cache-from: type=gha,scope=pingpong
           cache-to: type=gha,mode=max,scope=pingpong
 
@@ -114,75 +114,69 @@ jobs:
       - name: Update image references in manifests
         shell: bash
         env:
-          SERVER_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-server:${{ github.sha }}
-          PINGPONG_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong8-pingpong:${{ github.sha }}
+          SERVER_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/log-server:${{ github.sha }}
+          PINGPONG_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ping-pong:${{ github.sha }}
         run: |
           set -euo pipefail
 
-          mapfile -d '' -t files < <(
-            find manifest -type f \
-              \( -name '*.yaml' -o -name '*.yml' \) \
-              -print0
-          )
+          SERVER_FILE="manifest/server-deployment.yml"
+          PINGPONG_FILE="manifest/ping-pong-rollout.yml"
 
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::No YAML files found under manifest/"
+          test -f "$SERVER_FILE" || {
+            echo "::error::Missing $SERVER_FILE"
+            exit 1
+          }
+
+          test -f "$PINGPONG_FILE" || {
+            echo "::error::Missing $PINGPONG_FILE"
+            exit 1
+          }
+
+          echo "Updating server image..."
+          yq -i '
+            (
+              .spec.template.spec.containers[]
+              | select(.name == "ako-log-server")
+              | .image
+            ) = strenv(SERVER_IMAGE)
+          ' "$SERVER_FILE"
+
+          echo "Updating ping-pong image..."
+          yq -i '
+            (
+              .spec.template.spec.containers[]
+              | select(.name == "ako-ping-pong")
+              | .image
+            ) = strenv(PINGPONG_IMAGE)
+          ' "$PINGPONG_FILE"
+
+          echo "Verifying updated images..."
+
+          ACTUAL_SERVER=$(yq -r '
+            .spec.template.spec.containers[]
+            | select(.name == "ako-log-server")
+            | .image
+          ' "$SERVER_FILE")
+
+          ACTUAL_PINGPONG=$(yq -r '
+            .spec.template.spec.containers[]
+            | select(.name == "ako-ping-pong")
+            | .image
+          ' "$PINGPONG_FILE")
+
+          if [[ "$ACTUAL_SERVER" != "$SERVER_IMAGE" ]]; then
+            echo "::error::Server image mismatch: $ACTUAL_SERVER"
             exit 1
           fi
 
-          for file in "${files[@]}"; do
-            echo "Inspecting $file"
-
-            yq -r '
-              select(.kind == "Rollout" or .kind == "Deployment")
-              | .metadata.name as $workload
-              | .spec.template.spec.containers[]
-              | "\($workload): container=\(.name) image=\(.image)"
-            ' "$file"
-
-            yq -i '
-              (
-                select(.kind == "Rollout" or .kind == "Deployment")
-                | .spec.template.spec.containers[]
-                | select(
-                    .name == "server" or
-                    .name == "logger" or
-                    ((.image // "") |
-                      test("(^|/)(ping-pong8-server|server|logger)(:|@|$)"))
-                  )
-                | .image
-              ) = strenv(SERVER_IMAGE)
-              |
-              (
-                select(.kind == "Rollout" or .kind == "Deployment")
-                | .spec.template.spec.containers[]
-                | select(
-                    .name == "ping-pong" or
-                    .name == "pingpong" or
-                    .name == "ping-pong-app" or
-                    ((.image // "") |
-                      test("(^|/)(ping-pong8-pingpong|ping-pong|pingpong)(:|@|$)"))
-                  )
-                | .image
-              ) = strenv(PINGPONG_IMAGE)
-            ' "$file"
-          done
-
-          echo "Verifying updated image references..."
-
-          if ! grep -R -F -- "$SERVER_IMAGE" manifest >/dev/null; then
-            echo "::error::Server image was not found in manifest/. Check the container names printed above."
+          if [[ "$ACTUAL_PINGPONG" != "$PINGPONG_IMAGE" ]]; then
+            echo "::error::Ping-pong image mismatch: $ACTUAL_PINGPONG"
             exit 1
           fi
 
-          if ! grep -R -F -- "$PINGPONG_IMAGE" manifest >/dev/null; then
-            echo "::error::Ping-pong image was not found in manifest/. Check the container names printed above."
-            exit 1
-          fi
-
-          echo "Verified both image references:"
-          echo "$SERVER_IMAGE"
-          echo "$PINGPONG_IMAGE"
+          echo "Server image: $ACTUAL_SERVER"
+          echo "Ping-pong image: $ACTUAL_PINGPONG"
+          echo "Both manifest image references updated successfully."
       
       - name: Commit and push
         shell: bash
