@@ -7,17 +7,20 @@ spec:
   metrics:
     - name: namespace-cpu-usage
       # Run 10 checks spaced 30s apart = 5 minutes total
+
       interval: 30s
       count: 10
       # Fail and revert immediately on the first measurement that exceeds the threshold
+
       failureLimit: 0
       # Must stay strictly below 0.15 CPU cores (150m)
+
       successCondition: result < 0.15
       provider:
         prometheus:
           # Replace with your Prometheus service DNS name (check: kubectl get svc -n prometheus)
           address: http://prom-prometheus-server.exercises-monitoring.svc.cluster.local:80
-          query: |
+          query: |-
             scalar(
               sum(
                 rate(

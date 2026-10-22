@@ -6,7 +6,6 @@ metadata:
 data:
   # property-like keys; each key maps to a simple value
   message: "Hello Ako!"
-
   # file-like keys
-  information.txt: |
+  information.txt: |-
     this text is from Ako's file.

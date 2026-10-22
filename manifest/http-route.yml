@@ -21,7 +21,6 @@ spec:
       backendRefs:
         - name: ako-ping-pong-svc
           port: 1238
-
     # Rule 2: Match /logger, strip the prefix, and send to ako-log-server-svc
     - matches:
         - path:
@@ -36,7 +35,6 @@ spec:
       backendRefs:
         - name: ako-log-server-svc
           port: 1235
-
     # Rule 2: Match root / and send directly to ako-log-server-svc
     - matches:
         - path:
